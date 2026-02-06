@@ -1,9 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Star, BarChart2, TrendingUp } from 'lucide-react';
+import { Star, BarChart2, TrendingUp, FileText } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
+import API_BASE_URL from '../config';
 
 const Sidebar = () => {
-    const [favorites, setFavorites] = useState([]);
+    const navigate = useNavigate();
+    const location = useLocation();
+    const [favoritesKR, setFavoritesKR] = useState([]);
+    const [favoritesUS, setFavoritesUS] = useState([]);
+
+    const goHome = () => navigate('/');
+    const goReports = () => navigate('/reports');
 
     useEffect(() => {
         fetchFavorites();
@@ -17,16 +25,23 @@ const Sidebar = () => {
 
     const fetchFavorites = async () => {
         try {
-            const response = await axios.get('http://localhost:8001/api/favorites');
-            setFavorites(response.data);
+            const [krRes, usRes] = await Promise.all([
+                axios.get(`${API_BASE_URL}/api/favorites/kr`),
+                axios.get(`${API_BASE_URL}/api/favorites/us`)
+            ]);
+            setFavoritesKR(krRes.data);
+            setFavoritesUS(usRes.data);
         } catch (error) {
             console.error("Failed to fetch favorites", error);
         }
     };
 
-    const handleRemoveFavorite = async (stockCode) => {
+    const handleRemoveFavorite = async (stockCode, type) => {
         try {
-            await axios.delete(`http://localhost:8001/api/favorites/code/${stockCode}`);
+            const endpoint = type === 'KR'
+                ? `${API_BASE_URL}/api/favorites/kr/${stockCode}`
+                : `${API_BASE_URL}/api/favorites/us/${stockCode}`;
+            await axios.delete(endpoint);
             await fetchFavorites();
             // Notify other components (StockDashboard)
             window.dispatchEvent(new Event('favoritesUpdated'));
@@ -43,28 +58,38 @@ const Sidebar = () => {
             </div>
 
             <div className="sidebar-nav">
-                <div className="nav-item active">
+                <div
+                    className={`nav-item ${location.pathname === '/' ? 'active' : ''}`}
+                    onClick={goHome}
+                >
                     <BarChart2 size={20} />
                     <span>Dashboard</span>
                 </div>
 
-                <div style={{ padding: '1rem 0', fontSize: '0.8rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    My Work
+                <div
+                    className={`nav-item ${location.pathname === '/reports' ? 'active' : ''}`}
+                    onClick={goReports}
+                >
+                    <FileText size={20} />
+                    <span>Reports</span>
                 </div>
 
-                {favorites.length === 0 ? (
+                <div style={{ padding: '1rem 0', fontSize: '0.8rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Korean Stocks
+                </div>
+                {favoritesKR.length === 0 ? (
                     <div style={{ padding: '0 1rem', color: '#64748b', fontSize: '0.9rem' }}>
-                        No favorites yet.
+                        No Korean stocks.
                     </div>
                 ) : (
-                    favorites.map((fav) => (
+                    favoritesKR.map((fav) => (
                         <div key={fav.id} className="nav-item" style={{ justifyContent: 'space-between' }}>
                             <div style={{ display: 'flex', alignItems: 'center' }}>
                                 <span
                                     style={{ marginRight: '0.5rem', cursor: 'pointer' }}
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        handleRemoveFavorite(fav.stock_code);
+                                        handleRemoveFavorite(fav.stock_code, 'KR');
                                     }}
                                 >
                                     <Star size={16} fill="#fbbf24" color="#fbbf24" />
@@ -72,9 +97,60 @@ const Sidebar = () => {
                                 <span
                                     style={{ cursor: 'pointer', flex: 1 }}
                                     onClick={() => {
-                                        window.dispatchEvent(new CustomEvent('loadStock', {
-                                            detail: { code: fav.stock_code, name: fav.stock_name }
-                                        }));
+                                        if (location.pathname !== '/') {
+                                            navigate('/', {
+                                                state: {
+                                                    loadStock: { code: fav.stock_code, name: fav.stock_name }
+                                                }
+                                            });
+                                        } else {
+                                            window.dispatchEvent(new CustomEvent('loadStock', {
+                                                detail: { code: fav.stock_code, name: fav.stock_name }
+                                            }));
+                                        }
+                                    }}
+                                >
+                                    {fav.stock_name} ({fav.stock_code})
+                                </span>
+                            </div>
+                        </div>
+                    ))
+                )}
+
+                <div style={{ padding: '1rem 0', fontSize: '0.8rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    US Stocks
+                </div>
+                {favoritesUS.length === 0 ? (
+                    <div style={{ padding: '0 1rem', color: '#64748b', fontSize: '0.9rem' }}>
+                        No US stocks.
+                    </div>
+                ) : (
+                    favoritesUS.map((fav) => (
+                        <div key={fav.id} className="nav-item" style={{ justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                                <span
+                                    style={{ marginRight: '0.5rem', cursor: 'pointer' }}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleRemoveFavorite(fav.stock_code, 'US');
+                                    }}
+                                >
+                                    <Star size={16} fill="#fbbf24" color="#fbbf24" />
+                                </span>
+                                <span
+                                    style={{ cursor: 'pointer', flex: 1 }}
+                                    onClick={() => {
+                                        if (location.pathname !== '/') {
+                                            navigate('/', {
+                                                state: {
+                                                    loadStock: { code: fav.stock_code, name: fav.stock_name }
+                                                }
+                                            });
+                                        } else {
+                                            window.dispatchEvent(new CustomEvent('loadStock', {
+                                                detail: { code: fav.stock_code, name: fav.stock_name }
+                                            }));
+                                        }
                                     }}
                                 >
                                     {fav.stock_name} ({fav.stock_code})

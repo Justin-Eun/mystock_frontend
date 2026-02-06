@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
 import { Search, TrendingUp, DollarSign, BrainCircuit, Activity, Star } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceDot, Label } from 'recharts';
+import { useLocation } from 'react-router-dom';
 import axios from 'axios';
+import API_BASE_URL from '../config';
+import DashboardLanding from './DashboardLanding'; // Import the new component
+import ChatWidget from './ChatWidget'; // Import ChatWidget
 
 const StockDashboard = () => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -26,9 +30,31 @@ const StockDashboard = () => {
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
 
+    // URL Location for state
+    const location = useLocation();
+
     // Fetch favorites on mount to check status
     React.useEffect(() => {
         fetchFavorites();
+
+        // Check if we navigated here with a stock to load
+        if (location.state && location.state.loadStock) {
+            const { code, name } = location.state.loadStock;
+            console.log("Navigated with stock:", code);
+            // Trigger load
+            setSearchTerm(code);
+            setDisplayedCode(code);
+            setStockName(name);
+            setStockData(null);
+            setFinancials(null);
+            setAnalysis('');
+            fetchStockData(code);
+
+            // Optional: clear state to prevent reload loop if we refreshed (though state usually persists)
+            // But React Router state is per history entry, so it's fine.
+            // Actually, best to clear the history state to prevent re-triggering on back/forward? 
+            // For now, simple is fine.
+        }
 
         // Listen for updates from Sidebar (Favorites toggle)
         const handleFavoritesUpdate = () => fetchFavorites();
@@ -91,8 +117,11 @@ const StockDashboard = () => {
 
     const fetchFavorites = async () => {
         try {
-            const res = await axios.get('http://localhost:8001/api/favorites');
-            setFavorites(res.data);
+            const [krRes, usRes] = await Promise.all([
+                axios.get(`${API_BASE_URL}/api/favorites/kr`),
+                axios.get(`${API_BASE_URL}/api/favorites/us`)
+            ]);
+            setFavorites([...krRes.data, ...usRes.data]);
         } catch (err) {
             console.error(err);
         }
@@ -101,14 +130,17 @@ const StockDashboard = () => {
     const toggleFavorite = async () => {
         if (!displayedCode) return;
 
+        const isKR = /^\d+$/.test(displayedCode);
+        const endpointBase = isKR ? `${API_BASE_URL}/api/favorites/kr` : `${API_BASE_URL}/api/favorites/us`;
+
         try {
             if (isFavorite) {
                 // Remove
-                await axios.delete(`http://localhost:8001/api/favorites/code/${displayedCode}`);
+                await axios.delete(`${endpointBase}/${displayedCode}`);
                 setIsFavorite(false);
             } else {
                 // Add
-                await axios.post('http://localhost:8001/api/favorites', {
+                await axios.post(endpointBase, {
                     stock_code: displayedCode,
                     stock_name: stockName || displayedCode
                 });
@@ -138,7 +170,7 @@ const StockDashboard = () => {
         try {
             console.log("Requesting Price Data...");
             // 1. Get Price Data (Critical)
-            const priceRes = await axios.get(`http://localhost:8001/api/stock/${code}/price`, {
+            const priceRes = await axios.get(`${API_BASE_URL}/api/stock/${code}/price`, {
                 params: { timeframe, start_date: startDate, end_date: endDate }
             });
             console.log("Price Data Received:", priceRes.data);
@@ -164,7 +196,7 @@ const StockDashboard = () => {
             if (!financials) {
                 console.log("Requesting Financials...");
                 // Async fetch, don't block
-                axios.get(`http://localhost:8001/api/stock/${code}/financials`)
+                axios.get(`${API_BASE_URL}/api/stock/${code}/financials`)
                     .then(res => {
                         console.log("Financials Received:", res.data);
                         setFinancials(res.data);
@@ -176,7 +208,7 @@ const StockDashboard = () => {
             if (!analysis) {
                 console.log("Requesting Analysis...");
                 setAnalysis("Analyzing market data... (This may take a moment)");
-                axios.post('http://localhost:8001/api/analyze', {
+                axios.post(`${API_BASE_URL}/api/analyze`, {
                     stock_code: code,
                     stock_name: stockName || code // Pass name to AI
                 })
@@ -215,7 +247,7 @@ const StockDashboard = () => {
                 // Try to resolve name to code
                 try {
                     setLoading(true);
-                    const res = await axios.get(`http://localhost:8001/api/search`, { params: { q: searchTerm } });
+                    const res = await axios.get(`${API_BASE_URL}/api/search`, { params: { q: searchTerm } });
                     const results = res.data;
 
                     if (results && results.length > 0) {
@@ -279,7 +311,7 @@ const StockDashboard = () => {
     React.useEffect(() => {
         const delayDebounceFn = setTimeout(() => {
             if (searchTerm && !/^\d{6}$/.test(searchTerm) && searchTerm.length > 1) {
-                axios.get(`http://localhost:8001/api/search`, { params: { q: searchTerm } })
+                axios.get(`${API_BASE_URL}/api/search`, { params: { q: searchTerm } })
                     .then(res => {
                         // Only show if we get meaningful results (more than 0)
                         if (res.data && res.data.length > 0) {
@@ -383,6 +415,10 @@ const StockDashboard = () => {
                 <div style={{ padding: '1rem', background: '#450a0a', border: '1px solid #ef4444', borderRadius: '0.5rem', color: '#fca5a5', marginBottom: '1rem' }}>
                     {error}
                 </div>
+            )}
+
+            {!stockData && !loading && !error && (
+                <DashboardLanding />
             )}
 
             {stockData && (
@@ -562,6 +598,17 @@ const StockDashboard = () => {
                     </div>
                 </>
             )}
+
+            {/* Chat Widget Integration */}
+            <ChatWidget
+                context={{
+                    stockName: stockName,
+                    stockCode: displayedCode,
+                    stockData: stockData,
+                    financials: financials,
+                    analysis: analysis
+                }}
+            />
         </div>
     );
 };
