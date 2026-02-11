@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Activity, TrendingUp, TrendingDown, DollarSign, Globe, Anchor } from 'lucide-react';
 import axios from 'axios';
 import API_BASE_URL from '../config';
+import AiIssueWidget from './AiIssueWidget';
 
 const DashboardLanding = () => {
     const [data, setData] = useState(null);
@@ -66,6 +67,9 @@ const DashboardLanding = () => {
                         {new Date().toLocaleDateString()}
                     </span>
                 </div>
+
+                {/* AI Issue Widget */}
+                <AiIssueWidget />
 
                 <div className="brain-card" style={{
                     background: 'linear-gradient(145deg, #1e293b 0%, #0f172a 100%)',

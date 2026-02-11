@@ -33,6 +33,11 @@ const Sidebar = () => {
             setFavoritesUS(usRes.data);
         } catch (error) {
             console.error("Failed to fetch favorites", error);
+            // Fallback for demo if DB is down
+            setFavoritesKR([
+                { id: 'mock1', stock_code: '005930', stock_name: '삼성전자 (DB연결안됨)' },
+                { id: 'mock2', stock_code: '000660', stock_name: 'SK하이닉스 (예시)' }
+            ]);
         }
     };
 
