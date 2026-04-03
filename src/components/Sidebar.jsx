@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Star, BarChart2, TrendingUp, FileText } from 'lucide-react';
+import { Star, BarChart2, TrendingUp, FileText, BrainCircuit } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import API_BASE_URL from '../config';
@@ -12,6 +12,7 @@ const Sidebar = () => {
 
     const goHome = () => navigate('/');
     const goReports = () => navigate('/reports');
+    const goAgent = () => navigate('/agent');
 
     useEffect(() => {
         fetchFavorites();
@@ -77,6 +78,14 @@ const Sidebar = () => {
                 >
                     <FileText size={20} />
                     <span>Reports</span>
+                </div>
+
+                <div
+                    className={`nav-item ${location.pathname === '/agent' ? 'active' : ''}`}
+                    onClick={goAgent}
+                >
+                    <BrainCircuit size={20} />
+                    <span>AI Review</span>
                 </div>
 
                 <div style={{ padding: '1rem 0', fontSize: '0.8rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
